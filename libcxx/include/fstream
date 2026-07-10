@@ -256,14 +256,20 @@ public:
 
   // 27.9.1.4 Members:
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI bool is_open() const;
-  basic_filebuf* open(const char* __s, ios_base::openmode __mode)
 #  if _LIBCPP_STD_VER >= 23 && defined(_AIX)
+  // On AIX, fopen's 'x' flag is broken (CMVC bug): it silently succeeds
+  // instead of failing when the file already exists, violating C23 §7.23.5.3¶5.
+  // Mark open() as _LIBCPP_HIDE_FROM_ABI so each TU gets its own inlined copy
+  // with the early-return workaround, rather than calling the exported .so
+  // symbol which was compiled without the fix.
+  _LIBCPP_HIDE_FROM_ABI basic_filebuf* open(const char* __s, ios_base::openmode __mode)
       _LIBCPP_DIAGNOSE_WARNING(
           (__mode & ios_base::noreplace) != 0,
           "ios_base::noreplace (exclusive mode) is not supported on AIX; "
-          "open() will always return failure when this flag is used.")
+          "open() will always return failure when this flag is used.");
+#  else
+  basic_filebuf* open(const char* __s, ios_base::openmode __mode);
 #  endif
-      ;
 #    if _LIBCPP_HAS_OPEN_WITH_WCHAR
   basic_filebuf* open(const wchar_t* __s, ios_base::openmode __mode);
 #    endif
