@@ -16,7 +16,6 @@
 // In C++23 and later, this test requires support for P2467R1 in the dylib (a3f17ba3febbd546f2342ffc780ac93b694fdc8d)
 // XFAIL: (!c++03 && !c++11 && !c++14 && !c++17 && !c++20) && using-built-library-before-llvm-18
 
-// XFAIL: LIBCXX-AIX-FIXME
 
 #include <fstream>
 #include <cassert>
@@ -76,6 +75,46 @@ int main(int, char**)
             std::ios_base::in | std::ios_base::out | std::ios_base::trunc | std::ios_base::noreplace |
                 std::ios_base::binary,
         };
+#  if defined(_AIX)
+        // On AIX, ios_base::noreplace is not supported: open() always fails
+        // regardless of whether the file exists (see fstream AIX workaround).
+        for (auto mode : modes) {
+          std::string tmp = get_temp_file_name(); // also creates the file
+
+          {
+            std::ofstream f;
+            f.open(tmp.c_str(), mode);
+            assert(!f.is_open()); // always fails on AIX
+          }
+
+          {
+            std::remove(tmp.c_str());
+
+            std::ofstream f;
+            f.open(tmp.c_str(), mode);
+            assert(!f.is_open()); // always fails on AIX even when file doesn't exist
+          }
+        }
+
+#    ifndef TEST_HAS_NO_WIDE_CHARACTERS
+        for (auto mode : modes) {
+          std::string tmp = get_temp_file_name(); // also creates the file
+
+          {
+            std::wofstream f;
+            f.open(tmp.c_str(), mode);
+            assert(!f.is_open()); // always fails on AIX
+          }
+          {
+            std::remove(tmp.c_str());
+
+            std::wofstream f;
+            f.open(tmp.c_str(), mode);
+            assert(!f.is_open()); // always fails on AIX even when file doesn't exist
+          }
+        }
+#    endif
+#  else
         for (auto mode : modes) {
           std::string tmp = get_temp_file_name(); // also creates the file
 
@@ -94,7 +133,7 @@ int main(int, char**)
           }
         }
 
-#  ifndef TEST_HAS_NO_WIDE_CHARACTERS
+#    ifndef TEST_HAS_NO_WIDE_CHARACTERS
         for (auto mode : modes) {
           std::string tmp = get_temp_file_name(); // also creates the file
 
@@ -111,7 +150,8 @@ int main(int, char**)
             assert(f.is_open()); // since it doesn't exist
           }
         }
-#  endif
+#    endif
+#  endif // defined(_AIX)
     }
 #endif // TEST_STD_VER >= 23
 
