@@ -256,7 +256,14 @@ public:
 
   // 27.9.1.4 Members:
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI bool is_open() const;
-  basic_filebuf* open(const char* __s, ios_base::openmode __mode);
+  basic_filebuf* open(const char* __s, ios_base::openmode __mode)
+#  if _LIBCPP_STD_VER >= 23 && defined(_AIX)
+      _LIBCPP_DIAGNOSE_WARNING(
+          (__mode & ios_base::noreplace) != 0,
+          "ios_base::noreplace (exclusive mode) is not supported on AIX; "
+          "open() will always return failure when this flag is used.")
+#  endif
+      ;
 #    if _LIBCPP_HAS_OPEN_WITH_WCHAR
   basic_filebuf* open(const wchar_t* __s, ios_base::openmode __mode);
 #    endif
@@ -742,19 +749,17 @@ basic_filebuf<_CharT, _Traits>* basic_filebuf<_CharT, _Traits>::open(const char*
   if (!__mdstr)
     return nullptr;
 
-#  if _LIBCPP_STD_VER >= 23
-#    if defined(_AIX)
+#  if _LIBCPP_STD_VER >= 23 && defined(_AIX)
   // AIX's fopen does not correctly implement the C11/C23 'x' (exclusive) mode
   // flag: it silently succeeds instead of failing when the file already exists,
   // violating C23 §7.23.5.3¶5.  Until the OS bug (CMVC) is fixed, refuse to
   // call fopen at all when noreplace ('x') was requested so that open() always
   // reports failure rather than silently clobbering an existing file.
-#      warning "ios_base::noreplace (exclusive mode) is not supported on AIX; open() will always return failure for this mode."
-  // __mdstr contains 'x' when ios_base::noreplace is set.
+  // NOTE: ios_base::noreplace (exclusive mode) is not supported on AIX;
+  //       open() will always return failure when this flag is used.
   if (__builtin_strchr(__mdstr, 'x') != nullptr)
     return nullptr;
-#    endif // defined(_AIX)
-#  endif   // _LIBCPP_STD_VER >= 23
+#  endif // _LIBCPP_STD_VER >= 23 && defined(_AIX)
 
   return __do_open(std::fopen(__s, __mdstr), __mode);
 }
