@@ -798,6 +798,7 @@ private:
 
     _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 __long(__alloc_result __alloc, size_type __size)
         : __data_(__alloc.ptr), __size_(__size), __cap_(__alloc.count / __endian_factor), __is_long_(true) {
+          __builtin_printf("[libc++ debug] Inside __long\n");
       _LIBCPP_ASSERT_INTERNAL(!__fits_in_sso(__alloc.count), "Long capacity should always be larger than the SSO");
     }
 
@@ -852,7 +853,11 @@ private:
 
     _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 __long(__alloc_result __alloc, size_type __size)
         : __is_long_(true), __cap_(__alloc.count / __endian_factor), __size_(__size), __data_(__alloc.ptr) {
+          __builtin_printf("[libc++ debug] Inside __long2\n");
+          __builtin_printf("[libc++ debug] __long ctor: stored __data_=%p __size_=%zu __cap_=%zu\n",
+                       (void*)__data_, (size_t)__size_, (size_t)__cap_);
       _LIBCPP_ASSERT_INTERNAL(!__fits_in_sso(__alloc.count), "Long capacity should always be larger than the SSO");
+      __builtin_printf("[libc++ debug] __long ctor: assert passed, returning\n");
     }
 
     struct _LIBCPP_PACKED {
@@ -862,7 +867,7 @@ private:
     size_type __size_;
     pointer __data_;
   };
-
+  
   enum { __min_cap = (sizeof(__long) - 1) / sizeof(value_type) > 2 ? (sizeof(__long) - 1) / sizeof(value_type) : 2 };
 
   struct __short {
@@ -2181,6 +2186,7 @@ private:
   // Allocate a buffer of __capacity size with __alloc and return it
   _LIBCPP_HIDE_FROM_ABI static _LIBCPP_CONSTEXPR_SINCE_CXX20 __long
   __allocate_long_buffer(_Allocator& __alloc, size_type __size, size_type __min_capacity) {
+    __builtin_printf("[libc++ debug] Inside allocate long buffer\n");
     _LIBCPP_ASSERT_INTERNAL(
         __size <= __min_capacity, "Trying to allocate a long buffer with a smaller capacity than size");
     _LIBCPP_ASSERT_INTERNAL(!__fits_in_sso(__min_capacity),
@@ -2191,7 +2197,8 @@ private:
       for (size_type __i = 0; __i != __buffer.count; ++__i)
         std::__construct_at(std::addressof(__buffer.ptr[__i]));
     }
-
+    __builtin_printf("[libc++ debug] Right before __long call\n");
+    __builtin_printf("[libc++ debug] __size:%zu\n",__size);
     return __long(__buffer, __size);
   }
 
@@ -2307,14 +2314,22 @@ private:
 
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 size_type
   __get_amortized_growth_capacity(size_type __required_capacity) {
+    __builtin_printf("[libc++ debug] Inside __get_amortized_growth_capacity\n");
     size_type __max_size = max_size();
+    __builtin_printf("[libc++ debug] __required_capacity:%zu, __max_size:%zu\n",__required_capacity, __max_size);
     if (__required_capacity > __max_size)
-      __throw_length_error();
+      {
+        __builtin_printf("[libc++ debug] Inside __required_capacity > __max_size block\n");
+        __throw_length_error();
+      }
     size_type __current_cap = capacity();
     _LIBCPP_ASSERT_INTERNAL(
         __current_cap < __required_capacity, "Trying to grow string even though there is enough capacity already?");
     if (__current_cap > __max_size / 2 - __alignment)
       return __max_size;
+    __builtin_printf("[libc++ debug] Returning from __get_amortized_growth_capacity func\n");
+    auto T = std::max(__required_capacity, 2 * __current_cap);
+    __builtin_printf("[libc++ debug] Value of std::max(__required_capacity, 2 * __current_cap): %zu\n", T);
     return std::max(__required_capacity, 2 * __current_cap);
   }
 
@@ -2691,7 +2706,15 @@ basic_string<_CharT, _Traits, _Allocator>::__grow_by(
     size_type __n_copy,
     size_type __n_del,
     size_type __n_add) {
+    __builtin_printf("[libc++ debug] __grow_by(): __old_cap = %zu, __delta_cap = %zu\n",__old_cap, __delta_cap);
+      __builtin_printf("[libc++ debug] Calling allocate __allocate_long_buffer with __get_amortized_growth_capacity\n");
+      // size_type __ms = max_size();
+      // if (__delta_cap > __ms - __old_cap){
+      //   __builtin_printf("[libc++ debug] Caught the size being large\n");
+      //   __throw_length_error();
+      // }
   __long __buffer     = __allocate_long_buffer(__alloc_, 0, __get_amortized_growth_capacity(__old_cap + __delta_cap));
+  __builtin_printf("[libc++ debug] After __allocate_long_buffer\n");
   value_type* __old_p = __data();
   if (__n_copy != 0)
     traits_type::copy(std::__to_address(__buffer.__data_), __old_p, __n_copy);
@@ -2703,6 +2726,7 @@ basic_string<_CharT, _Traits, _Allocator>::__grow_by(
   // at all.
   __buffer.__size_ = -1;
   __reset_internal_buffer(__buffer);
+  __builtin_printf("[libc++ debug] After __grow_by\n");
 }
 
 template <class _CharT, class _Traits, class _Allocator>
@@ -3093,16 +3117,22 @@ basic_string<_CharT, _Traits, _Allocator>::insert(size_type __pos, const value_t
 template <class _CharT, class _Traits, class _Allocator>
 _LIBCPP_CONSTEXPR_SINCE_CXX20 basic_string<_CharT, _Traits, _Allocator>&
 basic_string<_CharT, _Traits, _Allocator>::insert(size_type __pos, size_type __n, value_type __c) {
+
   size_type __sz = size();
   if (__pos > __sz)
     this->__throw_out_of_range();
 
+  __builtin_printf("[libc++ debug] insert(): __sz = %zu, __n = %zu, max_size() = %zu\n",
+                     size(), __n, max_size());
+    __builtin_printf("[libc++ debug] insert(): __sz + __n = %zu (overflow?)\n",
+                     size() + __n);
   if (__n == 0)
     return *this;
 
   size_type __cap = capacity();
   value_type* __p;
   if (__cap - __sz >= __n) {
+    __builtin_printf("[libc++ debug] Inside __cap - __sz >= __n block");
     __annotate_increase(__n);
     __p                = __data();
     size_type __n_move = __sz - __pos;
@@ -3110,12 +3140,20 @@ basic_string<_CharT, _Traits, _Allocator>::insert(size_type __pos, size_type __n
       traits_type::move(__p + __pos + __n, __p + __pos, __n_move);
   } else {
     __grow_by_without_replace(__cap, __sz + __n - __cap, __sz, __pos, 0, __n);
+    __builtin_printf("[libc++ debug] After __grow_by_without_replace\n");
     __p = std::__to_address(__get_long_pointer());
+    __builtin_printf("[libc++ debug] After __get_long_pointer\n");
   }
+  __builtin_printf("[libc++ debug] Before assign1: ptr=%p n=%zu char=%c\n",
+                 (void*)(__p + __pos), (size_t)__n, __c);
   traits_type::assign(__p + __pos, __n, __c);
+  __builtin_printf("[libc++ debug] After assign1\n");
   __sz += __n;
   __set_size(__sz);
+  __builtin_printf("[libc++ debug] After __set_size\n");
   traits_type::assign(__p[__sz], value_type());
+  __builtin_printf("[libc++ debug] After assign2\n");
+  __builtin_printf("[libc++ debug] After insert\n");
   return *this;
 }
 

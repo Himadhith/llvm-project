@@ -49,7 +49,10 @@ __fill_n(_OutputIterator __first, _Size __n, const _Tp& __value) {
 #endif
   for (; __n > 0; ++__first, (void)--__n)
     *__first = __value;
-  return __first;
+    if (!__builtin_is_constant_evaluated())
+  __builtin_printf("[libc++ debug] Outside *__first = __value for loop\n", (size_t)__dbg_i);
+    return __first;
+
 }
 
 template <class _OutIter,
